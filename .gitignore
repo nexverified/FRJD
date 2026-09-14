@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.local/
+.env
+.env.*
+!.env.example
+.sites-runtime/
+*.log
+logs/
+.agents/
+.kilo/

@@ -1,0 +1,28 @@
+{
+  "name": "frjd-corporate-v2",
+  "version": "1.0.0",
+  "description": "FRJD Global Logistics Corporate Platform",
+  "main": "index.html",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node release/build.mjs",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --test tests/launch.test.mjs"
+  },
+  "keywords": [
+    "logistics",
+    "freight-forwarding",
+    "proxy-purchasing",
+    "1688",
+    "taobao",
+    "ddp-shipping"
+  ],
+  "author": "FRJD",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "esbuild": "^0.28.2"
+  }
+}
