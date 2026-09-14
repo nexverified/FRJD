@@ -9,7 +9,8 @@ await writeFile('dist/client/favicon.svg','<svg xmlns="http://www.w3.org/2000/sv
 await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
 await cp('drizzle','dist/.openai/drizzle',{recursive:true});
 // Keep the canonical Corporate-V2 HTML routes in sync with the launch release.
-const origin=process.env.FRJD_SITE_ORIGIN||'https://frjd-sourcing.bright-amber-9810.chatgpt.site';
+const origin=process.env.FRJD_SITE_ORIGIN||'https://frjd-sourcing.bhuvanraju66.chatgpt.site';
 for(const [name,html]of Object.entries(createPages()))await writeFile(name,html.replaceAll('__SITE_ORIGIN__',origin));
 for(const [name,target]of Object.entries(aliases))await writeFile(name,`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=/${target}"><title>Page moved | FRJD</title><link rel="canonical" href="${origin}/${target}"></head><body><p>This information has moved to <a href="/${target}">FRJD’s current service page</a>.</p></body></html>`);
 console.log('Built FRJD Worker, canonical pages, aliases, three source assets and database migrations.');
+
