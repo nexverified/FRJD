@@ -145,6 +145,7 @@ vite.config.ts.timestamp-*
 # FRJD local development and deployment data
 .local/
 .sites-runtime/
+pages-dist/
 .agents/
 .kilo/
 .wrangler/

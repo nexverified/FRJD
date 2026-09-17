@@ -1,4 +1,5 @@
 (() => {
+  const apiOrigin = document.querySelector('meta[name="frjd-api-origin"]')?.content || '';
   const menu = document.querySelector('.menu-toggle');
   const nav = document.querySelector('.navlinks');
   menu?.addEventListener('click', () => { const open = menu.getAttribute('aria-expanded') !== 'true'; menu.setAttribute('aria-expanded', String(open)); nav.classList.toggle('open', open); });
@@ -11,7 +12,7 @@
   const service = document.querySelector('[name=service]');
   if (service && query.has('service')) { const option = [...service.options].find(o => o.value.toLowerCase().includes(query.get('service').split(' ')[0].toLowerCase())); if (option) service.value = option.value; }
   const container = document.querySelector('[data-contact-dest]');
-  if (container) fetch('/api/config').then(r=>r.ok?r.json():{}).then(config=>{
+  if (container) fetch(apiOrigin+'/api/config').then(r=>r.ok?r.json():{}).then(config=>{
     if(config.contactEmail){const a=document.createElement('a');a.href='mailto:'+config.contactEmail;a.textContent=config.contactEmail;container.append(a);}
     if(config.whatsappNumber){const a=document.createElement('a');a.href='https://wa.me/'+config.whatsappNumber.replace(/\D/g,'');a.textContent='WhatsApp '+config.whatsappNumber;a.target='_blank';a.rel='noopener';container.append(a);}
   }).catch(()=>{});
@@ -38,7 +39,7 @@
       data.idempotencyKey=requestKey;
       button.disabled=true;button.textContent='Saving your request…';status.className='status';status.textContent='Please wait while your request is saved.';
       try {
-        const response = await fetch('/api/submit-quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
+        const response = await fetch(apiOrigin+'/api/submit-quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
         let result;try {result=await response.json();}catch{throw Error('We could not confirm that your request was saved. Please retry; your entries are still here.');}
         if(!response.ok||!result.success||!result.request_id)throw Error(result.error||'Your request could not be saved. Please retry; your entries are still here.');
         status.className='status success';status.replaceChildren();

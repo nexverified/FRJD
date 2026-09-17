@@ -1,8 +1,14 @@
 import { createPages, aliases } from './pages.mjs';
 const pages=createPages();
 const manual='Automatic product retrieval is unavailable for this listing. Submit the product link and FRJD will review it manually.';
+const githubPagesOrigin='https://nexverified.github.io';
 const security={'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"};
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{...security,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+function withPagesCors(response,request){
+  if(request.headers.get('origin')!==githubPagesOrigin||!['/api/config','/api/submit-quote'].includes(new URL(request.url).pathname))return response;
+  const headers=new Headers(response.headers);headers.set('Access-Control-Allow-Origin',githubPagesOrigin);headers.set('Vary','Origin');
+  return new Response(response.body,{status:response.status,headers});
+}
 function publicConfig(env){return {contactEmail:/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env.FRJD_CONTACT_EMAIL||'')?env.FRJD_CONTACT_EMAIL:'',whatsappNumber:/^\+?[\d\s().-]{7,32}$/.test(env.FRJD_WHATSAPP_NUMBER||'')?env.FRJD_WHATSAPP_NUMBER:''};}
 async function digest(text){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function readBody(request){
@@ -37,7 +43,7 @@ export function validate(input){
   p.consent=true;return p;
 }
 async function submit(request,env){
-  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return json({success:false,error:'Please submit through this website.'},403);
+  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin&&origin!==githubPagesOrigin)return json({success:false,error:'Please submit through this website.'},403);
   if(!env.DB)return json({success:false,error:'Enquiries are temporarily unavailable. Your request has not been saved. Please try again later.'},503);
   let p;try{p=validate(await readBody(request));}catch(e){return json({success:false,error:e.message},e.status||400);}
   const serialized=JSON.stringify(p);const hash=await digest(serialized);
@@ -57,8 +63,12 @@ export default {
   async fetch(request,env,ctx){
     const url=new URL(request.url);const path=url.pathname;
     try{
-      if(path==='/api/config'&&request.method==='GET')return json(publicConfig(env));
-      if(path==='/api/submit-quote'){if(request.method!=='POST')return json({error:'Method not allowed'},405);return await submit(request,env);}
+      if(path==='/api/config'&&request.method==='GET')return withPagesCors(json(publicConfig(env)),request);
+      if(path==='/api/submit-quote'){
+        if(request.method==='OPTIONS'&&request.headers.get('origin')===githubPagesOrigin)return new Response(null,{status:204,headers:{...security,'Access-Control-Allow-Origin':githubPagesOrigin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'86400','Vary':'Origin'}});
+        if(request.method!=='POST')return withPagesCors(json({error:'Method not allowed'},405),request);
+        return withPagesCors(await submit(request,env),request);
+      }
       if(path==='/api/resolve-product'&&request.method==='POST')return json({source:'manual_intake',available:false,message:manual});
       if(path==='/api/track'&&request.method==='POST')return json({available:false,source:'manual_update',message:'Live tracking is not connected. Request a manual shipment update.'});
       if(path==='/api/quote/estimate'&&request.method==='POST')return json({available:false,source:'manual_quote',message:'Submit a request for a written quotation.'});
@@ -81,6 +91,6 @@ export default {
       if(pages[name])return new Response(request.method==='HEAD'?null:pages[name].replaceAll('__SITE_ORIGIN__',origin),{status:name==='404.html'?404:200,headers:{...security,'Content-Type':'text/html; charset=utf-8','Cache-Control':'public,max-age=60'}});
       if(/^\/(assets\/(warehouse_storefront|pallet_packages|business_license)\.jpg|release\/(site\.css|client\.js)|favicon\.svg)$/.test(path)&&env.ASSETS){const r=await env.ASSETS.fetch(request);const headers=new Headers(r.headers);Object.entries(security).forEach(([k,v])=>headers.set(k,v));return new Response(r.body,{status:r.status,headers});}
       return new Response(request.method==='HEAD'?null:pages['404.html'].replaceAll('__SITE_ORIGIN__',origin),{status:404,headers:{...security,'Content-Type':'text/html; charset=utf-8'}});
-    }catch(error){console.error('FRJD request failed',path,error?.name||'Error');return json({success:false,error:'The service could not confirm your request. Your entries are still available; please retry.'},503);}
+    }catch(error){console.error('FRJD request failed',path,error?.name||'Error');return withPagesCors(json({success:false,error:'The service could not confirm your request. Your entries are still available; please retry.'},503),request);}
   }
 };

@@ -34,6 +34,16 @@ test('validation rejects malicious URLs, invalid quantity, missing contact/conse
  const cross=await worker.fetch(req(good(),{origin:'https://malicious.test'}),{DB},{});assert.equal(cross.status,403);
  assert.equal(DB.sqlite.prepare('SELECT COUNT(*) AS n FROM enquiries').get().n,0);
 });
+test('GitHub Pages can submit enquiries through the existing database API',async()=>{
+ const pagesOrigin='https://nexverified.github.io';const DB=await db();
+ const preflight=await worker.fetch(new Request(origin+'/api/submit-quote',{method:'OPTIONS',headers:{origin:pagesOrigin,'access-control-request-method':'POST','access-control-request-headers':'content-type'}}),{DB},{});
+ assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),pagesOrigin);
+ const config=await worker.fetch(new Request(origin+'/api/config',{headers:{origin:pagesOrigin}}),{},{});
+ assert.equal(config.status,200);assert.equal(config.headers.get('access-control-allow-origin'),pagesOrigin);
+ const response=await worker.fetch(req(good(),{origin:pagesOrigin}),{DB},{});
+ assert.equal(response.status,201);assert.equal(response.headers.get('access-control-allow-origin'),pagesOrigin);
+ assert.equal(DB.sqlite.prepare('SELECT COUNT(*) AS n FROM enquiries').get().n,1);
+});
 test('missing or failed storage never produces successful acknowledgement',async()=>{
  const missing=await worker.fetch(req(good()),{},{});assert.equal(missing.status,503);assert.equal((await missing.json()).success,false);
  const broken=await worker.fetch(req(good()),{DB:{prepare(){throw Error('database offline');}}},{});assert.equal(broken.status,503);assert.equal((await broken.json()).success,false);

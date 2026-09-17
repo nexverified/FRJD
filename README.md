@@ -42,9 +42,9 @@ Run `npm test` for route, validation, database, idempotency, rate-limit, and acc
 
 ## Deployment
 
-The application is currently hosted through the existing Sites project described in `.openai/hosting.json`. The public URL is <https://frjd-sourcing.bhuvanraju66.chatgpt.site>. Anyone with the link can view the site. Pushing to GitHub does **not** deploy to Sites or Netlify automatically.
+The primary showcase URL is <https://nexverified.github.io/FRJD/>. GitHub Actions builds and publishes the static pages on pushes to `main`. The quote, contact, and shipment-update forms call the existing Worker/D1 service at <https://frjd-sourcing.bhuvanraju66.chatgpt.site/>; GitHub Pages cannot run that backend itself. Both addresses are public. The Worker deployment is managed separately through the Sites project in `.openai/hosting.json`, so a GitHub push alone does not update that backend.
 
-The full application requires the Worker runtime and D1 binding. A basic static Netlify deploy would render pages but would not save enquiries. The public site is available for showcase and testing. Before relying on it for customer enquiries, configure verified contact details, establish staff review/notification, and test a hosted enquiry end to end.
+The public site is available for showcase and testing. Before relying on it for customer enquiries, configure verified contact details, establish staff review/notification, and test a hosted enquiry end to end.
 
 ## Repository hygiene
 
