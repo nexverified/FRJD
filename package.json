@@ -9,7 +9,7 @@
     "build": "node release/build.mjs",
     "build:pages": "npm run build && node release/build-pages.mjs",
     "db:generate": "drizzle-kit generate",
-    "test": "node --test tests/launch.test.mjs"
+    "test": "node --test tests/launch.test.mjs tests/transaction.test.mjs"
   },
   "keywords": [
     "logistics",

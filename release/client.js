@@ -19,6 +19,8 @@
   document.querySelectorAll('.request-form').forEach(form => {
     let requestKey = crypto.randomUUID();
     let previousPayload = null;
+    const newAccessToken=()=>[...crypto.getRandomValues(new Uint8Array(32))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    let accessToken=newAccessToken();
     form.addEventListener('submit', async e => {
       e.preventDefault();
       if (!form.reportValidity()) return;
@@ -33,6 +35,29 @@
       if (data.whatsapp && !/^\+?[\d\s().-]{7,32}$/.test(data.whatsapp)) return fail('Please enter a valid WhatsApp number with its country code.');
       if (data.kind==='quote' && !data.productUrl.trim() && !data.productName.trim()) return fail('Please add a product link or describe the product you want to source.');
       if (data.productUrl) {try {const u = new URL(data.productUrl);if(!['https:','http:'].includes(u.protocol)||u.username||u.password) throw Error();}catch{return fail('Please enter a full http or https product URL, without login credentials.');}}
+      if(data.kind==='quote'){
+        const signature=JSON.stringify(data);
+        if(previousPayload!==null&&signature!==previousPayload){requestKey=crypto.randomUUID();accessToken=newAccessToken();}
+        previousPayload=signature;
+        data.idempotencyKey=requestKey;data.accessToken=accessToken;
+        button.disabled=true;button.textContent='Saving your procurement request…';status.className='status';status.textContent='Please wait while your request is saved.';
+        try{
+          const response=await fetch(apiOrigin+'/api/procurement-requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
+          const result=await response.json();if(!response.ok||!result.success||!result.request_ref)throw Error(result.error||'Your request could not be confirmed. Please retry.');
+          const privateUrl=new URL('request.html',location.href);privateUrl.hash=new URLSearchParams({ref:result.request_ref,access:accessToken}).toString();
+          status.className='status success';status.replaceChildren();
+          const heading=document.createElement('h3');heading.textContent='Your procurement request is saved.';
+          const reference=document.createElement('p');reference.className='reference';reference.textContent=result.request_ref;
+          const detail=document.createElement('p');detail.textContent=`Submitted ${new Date(result.submitted_at).toLocaleString('en-GB')} · Status: ${result.status}.`;
+          const nextStep=document.createElement('p');nextStep.textContent=result.next_step||'FRJD will review and verify the product before preparing a quote.';
+          const warning=document.createElement('p');warning.textContent='Save this private link. The reference alone cannot reopen your request, and no email or WhatsApp delivery has been sent.';
+          const link=document.createElement('a');link.className='btn';link.href=privateUrl.toString();link.textContent='Open private request and quote';
+          const copy=document.createElement('button');copy.type='button';copy.className='btn secondary';copy.textContent='Copy private link';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(privateUrl.toString());copy.textContent='Private link copied';}catch{copy.textContent='Select and copy the link';}});
+          const again=document.createElement('button');again.type='button';again.className='btn secondary';again.textContent='Start another request';again.addEventListener('click',()=>{form.reset();requestKey=crypto.randomUUID();accessToken=newAccessToken();previousPayload=null;status.replaceChildren();button.disabled=false;button.textContent=original;form.querySelector('input:not([name=website])').focus();});
+          const actions=document.createElement('div');actions.className='actions';actions.append(link,copy,again);status.append(heading,reference,detail,nextStep,warning,actions);button.textContent='Request saved';status.focus();
+        }catch(error){fail(error.name==='TimeoutError'?'Save confirmation timed out. Retry with the same entries; duplicate requests are prevented.':error.message);button.disabled=false;button.textContent=original;}
+        return;
+      }
       const signature=JSON.stringify(data);
       if(previousPayload!==null&&signature!==previousPayload)requestKey=crypto.randomUUID();
       previousPayload=signature;

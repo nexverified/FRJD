@@ -1,11 +1,13 @@
 import { createPages, aliases } from './pages.mjs';
+import { handleTransaction } from './transaction.mjs';
 const pages=createPages();
 const manual='Automatic product retrieval is unavailable for this listing. Submit the product link and FRJD will review it manually.';
 const githubPagesOrigin='https://nexverified.github.io';
 const security={'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"};
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{...security,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
 function withPagesCors(response,request){
-  if(request.headers.get('origin')!==githubPagesOrigin||!['/api/config','/api/submit-quote'].includes(new URL(request.url).pathname))return response;
+  const path=new URL(request.url).pathname;
+  if(request.headers.get('origin')!==githubPagesOrigin||!(['/api/config','/api/submit-quote'].includes(path)||path==='/api/procurement-requests'||path.startsWith('/api/procurement-requests/')))return response;
   const headers=new Headers(response.headers);headers.set('Access-Control-Allow-Origin',githubPagesOrigin);headers.set('Vary','Origin');
   return new Response(response.body,{status:response.status,headers});
 }
@@ -64,6 +66,14 @@ export default {
     const url=new URL(request.url);const path=url.pathname;
     try{
       if(path==='/api/config'&&request.method==='GET')return withPagesCors(json(publicConfig(env)),request);
+      if((path==='/api/procurement-requests'||path.startsWith('/api/procurement-requests/'))&&request.method==='OPTIONS'&&request.headers.get('origin')===githubPagesOrigin)
+        return new Response(null,{status:204,headers:{...security,'Access-Control-Allow-Origin':githubPagesOrigin,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Max-Age':'86400','Vary':'Origin'}});
+      if(path==='/api/procurement-requests'||path.startsWith('/api/procurement-requests/')||path.startsWith('/api/operator/')){
+        const from=request.headers.get('origin');
+        if(from&&from!==url.origin&&from!==githubPagesOrigin)return json({success:false,error:'Please use the FRJD website.'},403);
+        if(path.startsWith('/api/operator/')&&from===githubPagesOrigin)return json({success:false,error:'Operator access is not available from this origin.'},403);
+        return withPagesCors(await handleTransaction(request,env,path),request);
+      }
       if(path==='/api/submit-quote'){
         if(request.method==='OPTIONS'&&request.headers.get('origin')===githubPagesOrigin)return new Response(null,{status:204,headers:{...security,'Access-Control-Allow-Origin':githubPagesOrigin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'86400','Vary':'Origin'}});
         if(request.method!=='POST')return withPagesCors(json({error:'Method not allowed'},405),request);
@@ -75,21 +85,22 @@ export default {
       if(path==='/api/admin/enquiries'){
         if(request.method!=='GET')return json({error:'Method not allowed'},405);
         const auth=request.headers.get('authorization')||'';
-        if(!env.FRJD_ADMIN_TOKEN||await digest(auth)!==await digest('Bearer '+env.FRJD_ADMIN_TOKEN))return json({error:'Unauthorized'},401);
+        if(typeof env.FRJD_ADMIN_TOKEN!=='string'||env.FRJD_ADMIN_TOKEN.length<32||await digest(auth)!==await digest('Bearer '+env.FRJD_ADMIN_TOKEN))return json({error:'Unauthorized'},401);
         if(!env.DB)return json({error:'Storage unavailable'},503);
         const rows=await env.DB.prepare('SELECT id,kind,payload,created_at,status FROM enquiries ORDER BY created_at DESC LIMIT 100').all();
         return json({enquiries:rows.results.map(r=>({...r,payload:JSON.parse(r.payload)}))});
       }
       if(path.startsWith('/api/'))return json({error:'Not found'},404);
       if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
+      if(path==='/ops.html')return new Response(request.method==='HEAD'?null:`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>FRJD operations</title><link rel="stylesheet" href="/release/site.css"><script src="/release/ops.js" defer></script></head><body class="ops-body"><main class="wrap ops-main"><h1>FRJD operations</h1><p>Private procurement review. Enter the operator credential for this session.</p><form id="ops-auth"><label for="ops-token">Operator credential</label><input id="ops-token" type="password" autocomplete="off" required minlength="32"><button class="btn">Open queue</button></form><div id="ops-status" role="status" aria-live="polite"></div><div id="ops-app" hidden></div></main></body></html>`,{status:200,headers:{...security,'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow','Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
       const origin=env.FRJD_SITE_ORIGIN||url.origin;
-      if(path==='/robots.txt')return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`,{headers:{...security,'Content-Type':'text/plain'}});
-      if(path==='/sitemap.xml')return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(pages).filter(p=>p!=='404.html').map(p=>`<url><loc>${origin}/${p==='index.html'?'':p}</loc></url>`).join('')}</urlset>`,{headers:{...security,'Content-Type':'application/xml'}});
+      if(path==='/robots.txt')return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /ops.html\nDisallow: /request.html\nSitemap: ${origin}/sitemap.xml\n`,{headers:{...security,'Content-Type':'text/plain'}});
+      if(path==='/sitemap.xml')return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(pages).filter(p=>!['404.html','request.html'].includes(p)).map(p=>`<url><loc>${origin}/${p==='index.html'?'':p}</loc></url>`).join('')}</urlset>`,{headers:{...security,'Content-Type':'application/xml'}});
       const name=path==='/'?'index.html':path.slice(1);
       if(aliases[name])return new Response(null,{status:301,headers:{...security,Location:'/'+aliases[name]}});
       if(path==='/index.html')return new Response(null,{status:301,headers:{...security,Location:'/'}});
       if(pages[name])return new Response(request.method==='HEAD'?null:pages[name].replaceAll('__SITE_ORIGIN__',origin),{status:name==='404.html'?404:200,headers:{...security,'Content-Type':'text/html; charset=utf-8','Cache-Control':'public,max-age=60'}});
-      if(/^\/(assets\/(warehouse_storefront|pallet_packages|business_license)\.jpg|release\/(site\.css|client\.js)|favicon\.svg)$/.test(path)&&env.ASSETS){const r=await env.ASSETS.fetch(request);const headers=new Headers(r.headers);Object.entries(security).forEach(([k,v])=>headers.set(k,v));return new Response(r.body,{status:r.status,headers});}
+      if(/^\/(assets\/(warehouse_storefront|pallet_packages|business_license)\.jpg|release\/(site\.css|client\.js|request\.js|ops\.js)|favicon\.svg)$/.test(path)&&env.ASSETS){const r=await env.ASSETS.fetch(request);const headers=new Headers(r.headers);Object.entries(security).forEach(([k,v])=>headers.set(k,v));return new Response(r.body,{status:r.status,headers});}
       return new Response(request.method==='HEAD'?null:pages['404.html'].replaceAll('__SITE_ORIGIN__',origin),{status:404,headers:{...security,'Content-Type':'text/html; charset=utf-8'}});
     }catch(error){console.error('FRJD request failed',path,error?.name||'Error');return withPagesCors(json({success:false,error:'The service could not confirm your request. Your entries are still available; please retry.'},503),request);}
   }

@@ -4,7 +4,7 @@ import {createPages,aliases} from './pages.mjs';
 await mkdir('dist/server',{recursive:true});await mkdir('dist/client/assets',{recursive:true});await mkdir('dist/client/release',{recursive:true});await mkdir('dist/.openai',{recursive:true});
 await build({entryPoints:['release/worker.mjs'],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:'dist/server/index.js',minify:true});
 for(const name of ['warehouse_storefront','pallet_packages','business_license'])await copyFile(`assets/${name}.jpg`,`dist/client/assets/${name}.jpg`);
-for(const name of ['site.css','client.js'])await copyFile('release/'+name,'dist/client/release/'+name);
+for(const name of ['site.css','client.js','request.js','ops.js'])await copyFile('release/'+name,'dist/client/release/'+name);
 await writeFile('dist/client/favicon.svg','<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="5" fill="#143d80"/><path d="M11 9h21v6H18v5h11v6H18v7h-7z" fill="white"/><path d="M28 5h7v5h-7z" fill="#d89b39"/></svg>');
 await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
 await cp('drizzle','dist/.openai/drizzle',{recursive:true});

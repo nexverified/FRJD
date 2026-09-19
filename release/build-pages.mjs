@@ -24,8 +24,9 @@ for(const [name,target] of Object.entries(aliases)){
 }
 
 for(const name of ['warehouse_storefront','pallet_packages','business_license'])await copyFile(`assets/${name}.jpg`,`${output}/assets/${name}.jpg`);
-for(const name of ['site.css','client.js'])await copyFile(`release/${name}`,`${output}/release/${name}`);
+for(const name of ['site.css','client.js','request.js'])await copyFile(`release/${name}`,`${output}/release/${name}`);
 await copyFile('dist/client/favicon.svg',`${output}/favicon.svg`);
 await writeFile(output+'/.nojekyll','');
-await writeFile(output+'/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(createPages()).filter(name=>name!=='404.html').map(name=>`<url><loc>${siteOrigin}/${name==='index.html'?'':name}</loc></url>`).join('')}</urlset>`);
+await writeFile(output+'/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.keys(createPages()).filter(name=>!['404.html','request.html'].includes(name)).map(name=>`<url><loc>${siteOrigin}/${name==='index.html'?'':name}</loc></url>`).join('')}</urlset>`);
+await writeFile(output+'/robots.txt',`User-agent: *\nDisallow: ${basePath}/request.html\nSitemap: ${siteOrigin}/sitemap.xml\n`);
 console.log('Built GitHub Pages site at '+siteOrigin+'/');

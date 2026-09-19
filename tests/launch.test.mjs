@@ -9,7 +9,7 @@ const good=()=>({kind:'quote',name:'Launch QA',email:'qa@example.invalid',produc
 async function db(){const sqlite=new DatabaseSync(':memory:');for(const f of(await readdir(new URL('../drizzle/',import.meta.url))).filter(f=>f.endsWith('.sql')))sqlite.exec(await readFile(new URL('../drizzle/'+f,import.meta.url),'utf8'));function prepare(sql,args=[]){return{bind(...values){return prepare(sql,values);},async first(){return sqlite.prepare(sql).get(...args);},async all(){return{results:sqlite.prepare(sql).all(...args)};},async run(){return sqlite.prepare(sql).run(...args);}};}return{prepare,sqlite};}
 const req=(p,headers={})=>new Request(origin+'/api/submit-quote',{method:'POST',headers:{'content-type':'application/json',origin,...headers},body:JSON.stringify(p)});
 test('all canonical pages, alias redirects, assets references and metadata are coherent',async()=>{
- const pages=createPages();assert.equal(Object.keys(pages).length,16);
+ const pages=createPages();assert.equal(Object.keys(pages).length,17);
  for(const [name,html]of Object.entries(pages)){
   const r=await worker.fetch(new Request(origin+'/'+name),{},{});assert.equal(r.status,name==='404.html'?404:name==='index.html'?301:200,name);
   assert.match(html,/<title>.+?\| FRJD<\/title>/);assert.match(html,/name="description"/);assert.match(html,/<h1>/);assert.match(html,/rel="icon"/);
@@ -56,7 +56,8 @@ test('private files, customer records and unconfigured contact destinations are 
  for(const path of ['/server.js','/.env','/.local/enquiries.sqlite','/db/schema.ts','/api/submit-quote.js','/package.json','/logs/requests.log'])assert.equal((await worker.fetch(new Request(origin+path),{DB},{})).status,404,path);
  const config=await worker.fetch(new Request(origin+'/api/config'),{},{});assert.deepEqual(await config.json(),{contactEmail:'',whatsappNumber:''});
  const valid=await worker.fetch(new Request(origin+'/api/config'),{FRJD_CONTACT_EMAIL:'confirmed@example.com',FRJD_WHATSAPP_NUMBER:'+441234567890'},{});assert.equal((await valid.json()).contactEmail,'confirmed@example.com');
- const admin=await worker.fetch(new Request(origin+'/api/admin/enquiries',{headers:{Authorization:'Bearer local-test-secret'}}),{DB,FRJD_ADMIN_TOKEN:'local-test-secret'},{});assert.equal(admin.status,200);
+ const oldSecret='local-test-operator-credential-48-characters';
+ const admin=await worker.fetch(new Request(origin+'/api/admin/enquiries',{headers:{Authorization:'Bearer '+oldSecret}}),{DB,FRJD_ADMIN_TOKEN:oldSecret},{});assert.equal(admin.status,200);
 });
 test('SEO endpoints and integrations return truthful states and security headers',async()=>{
  for(const path of ['/','/sitemap.xml','/robots.txt']){const r=await worker.fetch(new Request(origin+path),{},{});assert.equal(r.status,200);assert.equal(r.headers.get('x-content-type-options'),'nosniff');}

@@ -1,0 +1,13 @@
+# Transaction spine implementation plan — Sprint 1
+
+These five planning documents were aligned against the current Worker/Pages/D1 entrypoints before implementation. The vertical is deliberately single-item but stored in item/source tables, with no scraper, payment, ERP or carrier work.
+
+1. Add a forward D1 migration and matching `db/schema.ts` definitions. Preserve `enquiries`; expose old leads read-only in the operator console. Extend the local SQLite preview adapter to support transactional `batch()` and enforce foreign keys.
+2. Add isolated transaction validation, marketplace hostname detection, capability hashing, state transitions, quote math limited to summing operator-entered minor-unit line amounts, and D1 repository operations. Fail closed when `DB` or required operator secret is absent. Do not fetch marketplace URLs.
+3. Route the new customer/operator APIs from `release/worker.mjs`; preserve existing API tests and static routes. Serve operator UI only from the Worker origin; permit Pages CORS only for customer request APIs.
+4. Expand the existing quote form with variant/specification and QC requirement, switch its submit path to procurement creation, and show reference, submission time, SUBMITTED status, next step and private access link. Add Pages/Worker `/request.html` for capability-protected read and customer actions. Keep contact/tracking on the old endpoint.
+5. Build the Worker-only operator console: list/filter/open requests, see old enquiries/manual notification queue, start review, ask for information, record verified product/supplier facts, publish versioned quote line items. Every mutation shows errors and history.
+6. Add tests for creation, validation/idempotency, authorization/visibility, operator updates, state machine, immutable quote versions, approval/decline/question, rate limit/unsafe URL, atomic failure. Run existing tests, full build and browser checks of the flows.
+7. Demonstrate a clearly labeled test transaction from 1688 URL through customer approval, preserving event and quote history. Record exact run and any deployment limitation in `SPRINT-1-RESULT.md`. Deployment requires D1 migration before activating new UI/Worker paths and a strong operator secret provisioned in the host; a Pages push alone cannot deploy the Worker.
+
+**Go/no-go for public use:** All required tests and hosted storage/auth checks must pass; an FRJD operator must own the queue; verified customer contact and commercial policy still must be supplied. If any prerequisite remains unavailable, report the code as implemented but do not claim the live transaction workflow is operational.
